@@ -19,11 +19,19 @@ jobs:
           java-version: '17'
           cache: gradle
 
+      - name: Install Gradle 8.2
+        shell: bash
+        run: |
+          curl -fsSL https://services.gradle.org/distributions/gradle-8.2-bin.zip -o gradle.zip
+          unzip -q gradle.zip -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/gradle-8.2/bin" >> "$GITHUB_PATH"
+
       - name: Build APK
+        shell: bash
         run: |
           cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          gradle --version
+          gradle assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
