@@ -98,7 +98,6 @@ public class MainActivity extends Activity {
         private void startSocksServer() {
             acceptPool.execute(() -> {
                 try {
-                    // Bind to loopback only – reachable only via ADB forward
                     serverSocket = new ServerSocket(
                         1080,
                         50,
