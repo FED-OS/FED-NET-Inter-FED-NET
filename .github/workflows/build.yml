@@ -54,26 +54,22 @@ jobs:
           $zip = "wintun.zip"
           $extractDir = "wintun-extracted"
           $url = "https://www.wintun.net/builds/wintun-$version.zip"
-
           Invoke-WebRequest -Uri $url -OutFile $zip -ErrorAction Stop
           Expand-Archive -Path $zip -DestinationPath $extractDir -Force
-
           $dll = Get-ChildItem -Path $extractDir -Recurse -Filter wintun.dll |
             Where-Object { $_.FullName -match '[\\/]bin[\\/]amd64[\\/]' } |
             Select-Object -First 1
-
           if (-not $dll) {
             Write-Host "Extracted files:"
             Get-ChildItem -Path $extractDir -Recurse | Select-Object FullName
             throw "AMD64 wintun.dll not found."
           }
-
           Copy-Item $dll.FullName -Destination "desktop\wintun.dll" -Force
 
-      - name: Download ADB
+      - name: Download ADB (latest)
         shell: pwsh
         run: |
-          $url = "https://dl.google.com/android/repository/platform-tools-34.0.5-windows.zip"
+          $url = "https://dl.google.com/android/repository/platform-tools-latest-windows.zip"
           $out = "platform-tools.zip"
           Invoke-WebRequest -Uri $url -OutFile $out -ErrorAction Stop
           Expand-Archive -Path $out -DestinationPath "desktop\" -Force
