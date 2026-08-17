@@ -11,17 +11,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
+          distribution: temurin
           java-version: '17'
-          distribution: 'temurin'
           cache: gradle
+
       - name: Build APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
@@ -33,38 +36,50 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download and verify tun2socks
-        shell: powershell
+      - name: Download tun2socks
+        shell: pwsh
         run: |
+          $url = "https://github.com/xjasonlyu/tun2socks/releases/download/v2.7.0/tun2socks-windows-amd64.zip"
           $out = "tun2socks.zip"
-          Invoke-WebRequest -Uri "https://github.com/xjasonlyu/tun2socks/releases/download/v2.7.0/tun2socks-windows-amd64.zip" -OutFile $out
-          # & .\scripts\verify-sha256.ps1 -File $out -ExpectedFilename "tun2socks-windows-amd64.zip"
+          Invoke-WebRequest -Uri $url -OutFile $out -ErrorAction Stop
           Expand-Archive -Path $out -DestinationPath "tun2socks_temp" -Force
           $exe = Get-ChildItem -Path "tun2socks_temp" -Filter "tun2socks*.exe" -Recurse -File | Select-Object -First 1
-          if ($null -eq $exe) { throw "No tun2socks executable found." }
+          if (-not $exe) { throw "No tun2socks executable found." }
           Copy-Item -Force $exe.FullName "desktop\tun2socks.exe"
 
-      - name: Download and verify Wintun
-        shell: powershell
+      - name: Download Wintun
+        shell: pwsh
         run: |
-          $out = "wintun.zip"
-          Invoke-WebRequest -Uri "https://www.wintun.net/builds/wintun-0.14.1.zip" -OutFile $out
-          # & .\scripts\verify-sha256.ps1 -File $out -ExpectedFilename "wintun-0.14.1.zip"
-          Expand-Archive -Path $out -DestinationPath "wintun_temp" -Force
-          $dll = "wintun_temp\amd64\wintun.dll"
-          if (-not (Test-Path $dll -PathType Leaf)) { throw "AMD64 wintun.dll not found." }
-          Copy-Item -Force $dll "desktop\wintun.dll"
+          $version = "0.14.1"
+          $zip = "wintun.zip"
+          $extractDir = "wintun-extracted"
+          $url = "https://www.wintun.net/builds/wintun-$version.zip"
 
-      - name: Download and verify ADB
-        shell: powershell
+          Invoke-WebRequest -Uri $url -OutFile $zip -ErrorAction Stop
+          Expand-Archive -Path $zip -DestinationPath $extractDir -Force
+
+          $dll = Get-ChildItem -Path $extractDir -Recurse -Filter wintun.dll |
+            Where-Object { $_.FullName -match '[\\/]bin[\\/]amd64[\\/]' } |
+            Select-Object -First 1
+
+          if (-not $dll) {
+            Write-Host "Extracted files:"
+            Get-ChildItem -Path $extractDir -Recurse | Select-Object FullName
+            throw "AMD64 wintun.dll not found."
+          }
+
+          Copy-Item $dll.FullName -Destination "desktop\wintun.dll" -Force
+
+      - name: Download ADB
+        shell: pwsh
         run: |
+          $url = "https://dl.google.com/android/repository/platform-tools-34.0.5-windows.zip"
           $out = "platform-tools.zip"
-          Invoke-WebRequest -Uri "https://dl.google.com/android/repository/platform-tools-34.0.5-windows.zip" -OutFile $out
-          # & .\scripts\verify-sha256.ps1 -File $out -ExpectedFilename "platform-tools-34.0.5-windows.zip"
+          Invoke-WebRequest -Uri $url -OutFile $out -ErrorAction Stop
           Expand-Archive -Path $out -DestinationPath "desktop\" -Force
 
       - name: Verify bundled binaries
-        shell: powershell
+        shell: pwsh
         run: |
           Get-Item desktop\tun2socks.exe
           Get-Item desktop\wintun.dll
@@ -76,10 +91,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - name: Install PyInstaller
         run: pip install pyinstaller
+
       - name: Build EXE
-        shell: powershell
+        shell: pwsh
         run: |
           cd desktop
           pyinstaller --onedir --name OpenTetherRouter start_tether.py
