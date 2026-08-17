@@ -1,0 +1,94 @@
+name: OpenTether Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenTether-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+  build-desktop:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download and verify tun2socks
+        shell: powershell
+        run: |
+          $out = "tun2socks.zip"
+          Invoke-WebRequest -Uri "https://github.com/xjasonlyu/tun2socks/releases/download/v2.7.0/tun2socks-windows-amd64.zip" -OutFile $out
+          & .\scripts\verify-sha256.ps1 -File $out -ExpectedFilename "tun2socks-windows-amd64.zip"
+          Expand-Archive -Path $out -DestinationPath "tun2socks_temp" -Force
+          $exe = Get-ChildItem -Path "tun2socks_temp" -Filter "tun2socks*.exe" -Recurse -File | Select-Object -First 1
+          if ($null -eq $exe) { throw "No tun2socks executable found." }
+          Copy-Item -Force $exe.FullName "desktop\tun2socks.exe"
+
+      - name: Download and verify Wintun
+        shell: powershell
+        run: |
+          $out = "wintun.zip"
+          Invoke-WebRequest -Uri "https://www.wintun.net/builds/wintun-0.14.1.zip" -OutFile $out
+          & .\scripts\verify-sha256.ps1 -File $out -ExpectedFilename "wintun-0.14.1.zip"
+          Expand-Archive -Path $out -DestinationPath "wintun_temp" -Force
+          $dll = "wintun_temp\amd64\wintun.dll"
+          if (-not (Test-Path $dll -PathType Leaf)) { throw "AMD64 wintun.dll not found." }
+          Copy-Item -Force $dll "desktop\wintun.dll"
+
+      - name: Download and verify ADB
+        shell: powershell
+        run: |
+          $out = "platform-tools.zip"
+          Invoke-WebRequest -Uri "https://dl.google.com/android/repository/platform-tools-34.0.5-windows.zip" -OutFile $out
+          & .\scripts\verify-sha256.ps1 -File $out -ExpectedFilename "platform-tools-34.0.5-windows.zip"
+          Expand-Archive -Path $out -DestinationPath "desktop\" -Force
+
+      - name: Verify bundled binaries
+        shell: powershell
+        run: |
+          Get-Item desktop\tun2socks.exe
+          Get-Item desktop\wintun.dll
+          Get-Item desktop\platform-tools\adb.exe
+          & desktop\tun2socks.exe --help
+          & desktop\platform-tools\adb.exe version
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+      - name: Build EXE
+        shell: powershell
+        run: |
+          cd desktop
+          pyinstaller --onedir --name OpenTetherRouter start_tether.py
+          Copy-Item tun2socks.exe dist\OpenTetherRouter\
+          Copy-Item wintun.dll dist\OpenTetherRouter\
+          Copy-Item -Recurse platform-tools dist\OpenTetherRouter\platform-tools
+
+      - name: Upload Desktop Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenTether-Desktop
+          path: desktop/dist/OpenTetherRouter/
