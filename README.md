@@ -1,3 +1,4 @@
+<img width="2560" height="1440" alt="opentether-clay-piggybank" src="https://github.com/user-attachments/assets/6f0afd84-d24e-4efa-9b5b-3977b7282484" />
 # OpenTether – Experimental IPv4 TCP-over-USB test tool [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/W3T61ZU5FS)
 
 OpenTether is an **experimental personal-use IPv4 TCP routing test** that uses an Android SOCKS5 proxy exposed over ADB and a Wintun/tun2socks path on Windows.
